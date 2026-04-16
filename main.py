@@ -24,7 +24,7 @@ if not BOT_TOKEN:
 # Вставь сюда свой Telegram user_id.
 # Если хочешь разрешить нескольким людям — добавь их id через запятую.
 ALLOWED_USERS = {
-    123456789,
+    6441961719,389023753
 }
 
 app = FastAPI()
@@ -45,12 +45,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Если твой ID ещё не внесён, бот покажет его тебе.
     if user.id not in ALLOWED_USERS:
         await update.message.reply_text(
-            f"Твой Telegram user_id: {user.id}\n"
-            f"Добавь его в ALLOWED_USERS в main.py."
+            "Not Allowed"
         )
         return
 
-    await update.message.reply_text("Бот жив.")
+    await update.message.reply_text("I'm here")
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
