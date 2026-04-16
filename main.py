@@ -17,9 +17,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-logger.info(f"BOT TOKEN EXISTS: {bool(BOT_TOKEN)}")
-if BOT_TOKEN:
-    logger.info(f"BOT TOKEN PREFIX: {BOT_TOKEN[:10]}")
 
 app = FastAPI()
 
@@ -39,28 +36,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def run_bot():
-    async def bot_main():
-        logger.info("Starting Telegram bot...")
+    try:
+        logger.info(f"BOT TOKEN EXISTS: {bool(BOT_TOKEN)}")
+        if BOT_TOKEN:
+            logger.info(f"BOT TOKEN PREFIX: {BOT_TOKEN[:10]}")
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
         tg_app = ApplicationBuilder().token(BOT_TOKEN).build()
         tg_app.add_handler(CommandHandler("start", start))
         tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-        await tg_app.initialize()
-        logger.info("Telegram app initialized")
+        logger.info("Starting polling...")
+        tg_app.run_polling(close_loop=False)
 
-        await tg_app.start()
-        logger.info("Telegram app started")
-
-        await tg_app.updater.start_polling()
-        logger.info("Polling started")
-
-        while True:
-            await asyncio.sleep(3600)
-
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(bot_main())
     except Exception as e:
         logger.exception(f"Bot crashed: {e}")
 
