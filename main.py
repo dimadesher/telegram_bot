@@ -17,23 +17,46 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
 
 if not BOT_TOKEN:
     raise RuntimeError("TELEGRAM_BOT_TOKEN is missing")
 
-if not WEBHOOK_SECRET:
-    raise RuntimeError("WEBHOOK_SECRET is missing")
+# Вставь сюда свой Telegram user_id.
+# Если хочешь разрешить нескольким людям — добавь их id через запятую.
+ALLOWED_USERS = {
+    123456789,
+}
 
 app = FastAPI()
 telegram_app: Application | None = None
 
 
+def is_allowed(update: Update) -> bool:
+    user = update.effective_user
+    return bool(user and user.id in ALLOWED_USERS)
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+
+    if not user:
+        return
+
+    # Если твой ID ещё не внесён, бот покажет его тебе.
+    if user.id not in ALLOWED_USERS:
+        await update.message.reply_text(
+            f"Твой Telegram user_id: {user.id}\n"
+            f"Добавь его в ALLOWED_USERS в main.py."
+        )
+        return
+
     await update.message.reply_text("Бот жив.")
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not is_allowed(update):
+        return
+
     if update.message and update.message.text:
         await update.message.reply_text(f"Echo: {update.message.text}")
 
@@ -75,6 +98,8 @@ async def telegram_webhook(request: Request) -> JSONResponse:
 
     data: Dict[str, Any] = await request.json()
     update = Update.de_json(data, telegram_app.bot)
+
+    logger.info("Received webhook update")
     await telegram_app.process_update(update)
 
     return JSONResponse({"ok": True})
