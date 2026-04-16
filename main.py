@@ -1,4 +1,5 @@
 import os
+import asyncio
 import threading
 import logging
 
@@ -6,39 +7,67 @@ from fastapi import FastAPI
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
-    MessageHandler,
     CommandHandler,
+    MessageHandler,
     ContextTypes,
     filters,
 )
 
-# --- базовый лог ---
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+logger.info(f"BOT TOKEN EXISTS: {bool(BOT_TOKEN)}")
+if BOT_TOKEN:
+    logger.info(f"BOT TOKEN PREFIX: {BOT_TOKEN[:10]}")
 
-# --- FastAPI для пинга ---
 app = FastAPI()
+
 
 @app.get("/")
 def ping():
     return {"status": "alive"}
 
-# --- Telegram бот ---
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Бот жив.")
+
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     await update.message.reply_text(f"Echo: {text}")
 
+
 def run_bot():
-    app_tg = ApplicationBuilder().token(BOT_TOKEN).build()
-    app_tg.add_handler(CommandHandler("start", start))
-    app_tg.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    async def bot_main():
+        logger.info("Starting Telegram bot...")
+        tg_app = ApplicationBuilder().token(BOT_TOKEN).build()
+        tg_app.add_handler(CommandHandler("start", start))
+        tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # ВАЖНО: polling блокирует поток → запускаем в отдельном thread
-    app_tg.run_polling()
+        await tg_app.initialize()
+        logger.info("Telegram app initialized")
 
-# --- запуск ---
-threading.Thread(target=run_bot, daemon=True).start()
+        await tg_app.start()
+        logger.info("Telegram app started")
+
+        await tg_app.updater.start_polling()
+        logger.info("Polling started")
+
+        while True:
+            await asyncio.sleep(3600)
+
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot_main())
+    except Exception as e:
+        logger.exception(f"Bot crashed: {e}")
+
+
+@app.on_event("startup")
+def startup_event():
+    logger.info("FastAPI startup event triggered")
+    thread = threading.Thread(target=run_bot, daemon=True)
+    thread.start()
+    logger.info("Bot thread started")
