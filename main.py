@@ -66,7 +66,7 @@ async def healthcheck() -> Dict[str, str]:
     return {"status": "alive"}
 
 
-@app.post(f"/webhook/{WEBHOOK_SECRET}")
+@app.post("/webhook")
 async def telegram_webhook(request: Request) -> JSONResponse:
     global telegram_app
 
